@@ -31,11 +31,6 @@ real.gdp <- cleanData(as.data.frame(real.gdp), 'real.gdp')
 productivity <- merge(real.gdp, employment, by=c('msa.fips', 'year'), all.y=FALSE)
 productivity$worker.productivity <- (productivity$real.gdp*1000000) / productivity$employment
 
-# Replace the lists
-productivity[] <- lapply(productivity, function(x) if(is.list(x)) unlist(x))
-employment[] <- lapply(employment, function(x) if(is.list(x)) unlist(x))
-real.gdp[] <- lapply(real.gdp, function(x) if(is.list(x)) unlist(x))
-
 # Save the data
 write.csv(productivity, 'Metro Worker Productivity.csv')
 write.csv(employment, 'Metro Total Employment.csv')

@@ -52,6 +52,7 @@ cleanData <- function(df, data.value){
   # Remove any duplicates
   df <- df[!duplicated(df),]
   # Change Variable Types
+  df$GeoFips <- as.character(df$GeoFips)
   df$TimePeriod <- as.numeric(df$TimePeriod)
   df$DataValue <- as.numeric(df$DataValue)
   #Rename the columns
