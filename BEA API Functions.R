@@ -52,11 +52,12 @@ cleanData <- function(df, data.value){
   # Remove any duplicates
   df <- df[!duplicated(df),]
   # Change Variable Types
-  df$GeoFips <- as.character(df$GeoFips)
-  df$TimePeriod <- as.numeric(df$TimePeriod)
   df$DataValue <- as.numeric(df$DataValue)
   #Rename the columns
   names(df) <- c('msa.fips', 'year', data.value)
+  # Change Variable Types
+  df$msa.fips <- as.character(df$msa.fips)
+  df$year <- as.numeric(df$year)
     
   return(df)
 }

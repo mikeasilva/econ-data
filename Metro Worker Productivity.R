@@ -17,6 +17,8 @@ source('~/BEA API Functions.R')
 # selecting the MSA's by state and downloading the CSV.
 metrolist <- read.csv('metrolist.csv', header=FALSE)
 names(metrolist) <- c('state.fips','state.name','msa.fips','msa.name')
+metrolist <- metrolist[c('msa.fips','msa.name')]
+metrolist <- metrolist[!duplicated(metrolist),]
 geo.fips.vector <- metrolist$msa.fips
 
 # Download & Clean Total Employment Data
