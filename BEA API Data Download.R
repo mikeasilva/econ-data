@@ -1,19 +1,26 @@
-# ============================================================================
-# BEA API Data Download.R
-# ============================================================================
-# Written by: Mike Silva
-# ============================================================================
-# This script pulls down metro level BEA estimates distributed by their API.
-# The data are saved as csv files for further analysis.
+## ============================================================================
+## BEA API Data Download.R
+## ============================================================================
+## Written by: Mike Silva
+## ============================================================================
+## This script pulls down metro level BEA estimates distributed by their API.
+## The data are saved as csv files for further analysis or build a data set.
 
-# The following file assigns my BEA API key to the variable 'api.key'
+## Set to true to save csvs
+save.csv <- TRUE
+
+## Set to true to save a RData file
+save.rdata <- FALSE
+
+## The following file assigns my BEA API key to the variable 'api.key'
 source('~/bea.api.key.R')
-# This file has the beaAPI and cleanData function
+
+## This file has the beaAPI and cleanData function
 source('~/BEA API Functions.R')
 
-# The following csv has the list of all the metros and their FIPS codes.  It 
-# was downloaded from http://www.bea.gov/regional/docs/msalist.cfm by 
-# selecting the MSA's by state and downloading the CSV.
+## The following csv has the list of all the metros and their FIPS codes.  It 
+## was downloaded from http://www.bea.gov/regional/docs/msalist.cfm by 
+## selecting the MSA's by state and downloading the CSV.
 metrolist <- read.csv('metrolist.csv', header=FALSE)
 names(metrolist) <- c('state.fips','state.name','msa.fips','msa.name')
 metrolist <- metrolist[c('msa.fips','msa.name')]
@@ -24,15 +31,34 @@ key.codes <- c('TPI_MI', 'POP_MI', 'PCPI_MI', 'NFPI_MI', 'FPI_MI', 'EARN_MI', 'C
 measures <- c('total.personal.income', 'population', 'per.capita.personal.income', 'nonfarm.personal.income', 'farm.personal.income', 'earnings.by.place.of.work', 'contributions.for.government.social.insurance', 'net.earnings.by.place.of.residence', 'dividends.interest.and.rent', 'personal.current.transfer.receipts', 'wages.and.salaries', 'supplements.to.wages.and.salaries', 'proprietors.Income', 'total.employment', 'wage.and.salary.employment', 'proprietors.employment', 'average.earnings.per.job', 'average.wage.per.job', 'average.compensation.per.job')
 
 for (i in 1:length(key.codes)){
-  # Display a message so I can see the progress
+  ## Display a message so I can see the progress
   message('Downloading ', i, ' of ', length(key.codes))
   key.code <- key.codes[i]
   measure <- measures[i]
-  # Download the data
+  ## Download the data
   data <- beaAPI(api.key, key.code, geo.fips.vector)
-  # Clean the data
+  ## Clean the data
   data <- cleanData(as.data.frame(data), measure)
   data$msa.fips <- as.character(data$msa.fips)
-  file.name <- paste0('bea ', gsub('[.]', ' ', measure),'.csv')
-  write.csv(data, file.name)
+
+  if(save.csv){
+    ## Store the data
+    file.name <- paste0('bea ', gsub('[.]', ' ', measure),'.csv')
+    write.csv(data, file.name)  
+  }
+  
+  if(save.rdata){
+    ## We want a large data.frame
+    if(i == 1){
+      bea.data <- data
+    }
+    else{
+      bea.data <- merge(bea.data, data, all.x=TRUE, by=c('msa.fips','year'))
+    }
+  }
+}
+## Store the data
+if(save.rdata){
+  rm(data, metrolist, api.key, geo.fips.vector, i, key.code, key.codes, measure, measures, save.csv, save.rdata, beaAPI, cleanData)
+  save.image('~/bea.data.RData')
 }
