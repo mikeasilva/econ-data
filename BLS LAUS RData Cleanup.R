@@ -36,5 +36,6 @@ bls.laus.data <- data
 ## Step 5: Cleanup the environment
 rm(data)
 
-## Step 6: Save RData
+## Step 6: Save the Data
 save.image("~/GitHub/econ-data/bls.laus.data.RData")
+saveRDS(bls.laus.data, file='~/GitHub/econ-data/bls.laus.data.rds')
