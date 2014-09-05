@@ -12,7 +12,7 @@
 # http://www.bea.gov/api/_pdf/bea_web_service_api_user_guide.pdf
 # ============================================================================
 
-beaAPI <- function(api.key, key.code.vector, geo.fips.vector){
+beaAPI <- function(api.key, key.code.vector, geo.fips.vector, progress.bar=TRUE){
   library(RCurl) 
   library(rjson)
   
@@ -23,8 +23,10 @@ beaAPI <- function(api.key, key.code.vector, geo.fips.vector){
   key.codes <- length(key.code.vector)
   geo.fipss <- length(geo.fips.vector)
   total <- key.codes * geo.fipss
-  pb.i <- 0
-  pb <- txtProgressBar(min = pb.i, max = total, style = 3)
+  if(progress.bar){
+    pb.i <- 0
+    pb <- txtProgressBar(min = pb.i, max = total, style = 3)
+  }
   
   for(key.code in key.code.vector){
     for(geo.fips in geo.fips.vector){
@@ -38,8 +40,10 @@ beaAPI <- function(api.key, key.code.vector, geo.fips.vector){
       for(new.row in json$BEAAPI$Results$Data){
         data.matrix <- rbind(data.matrix, new.row)
       }
-      pb.i <- pb.i + 1
-      setTxtProgressBar(pb, pb.i)
+      if(progress.bar){
+        pb.i <- pb.i + 1
+        setTxtProgressBar(pb, pb.i)
+      }
     }    
   }
   return(data.matrix)
