@@ -76,6 +76,5 @@ names(labor.force) <- names(employed)
 names(employed)[8] <- 'employed'
 names(labor.force)[8] <- 'labor.force'
 bls.laus.employment.data <- merge(employed, labor.force)
-#rm(labor.force, employed, central.outlying, county.fips, end.year, end.years, i,j,json,lf,msa.fips, payload,pb,response,series.id,series.ids,start.year,start.years,state.fips,u, csv, processData)
-#save.image("BLS LAUS Data.RData")
+rm(labor.force, employed, central.outlying, county.fips, end.year, end.years, i,j,json,lf,msa.fips, payload,pb,response,series.id,series.ids,start.year,start.years,state.fips,u, csv, processData)
 saveRDS(bls.laus.employment.data, 'bls.laus.employment.data.rds')

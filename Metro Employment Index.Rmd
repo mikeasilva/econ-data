@@ -1,0 +1,151 @@
+---
+title: "Metro Employment Index Derivation"
+author: "Mike Silva"
+date: "Monday, November 03, 2014"
+output: html_document
+---
+
+```{r, echo=FALSE, message=FALSE}
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(scales)
+```
+
+This document explains how the metro employment index is derived.  This index is base on the Local Area Unemployment Statistics (LAUS) published by the U.S. Bureau of Labor Statistics (BLS).
+
+We begin by downloading the data:  
+
+```{r}
+if(!file.exists('~/data')){
+  dir.create(file.path('~/data'))              
+}
+if(!file.exists('~/data/LAUS')){
+  dir.create(file.path('~/data/LAUS'))              
+}
+
+if(!file.exists('~/data/LAUS/la.series')){
+ download.file('http://download.bls.gov/pub/time.series/la/la.series', '~/data/LAUS/la.series')              
+}
+
+if(!file.exists('~/data/LAUS/la.data.0.CurrentU00-04')){
+ download.file('http://download.bls.gov/pub/time.series/la/la.data.0.CurrentU00-04', '~/data/LAUS/la.data.0.CurrentU00-04')              
+}
+
+if(!file.exists('~/data/LAUS/la.data.0.CurrentU05-09')){
+ download.file('http://download.bls.gov/pub/time.series/la/la.data.0.CurrentU05-09', '~/data/LAUS/la.data.0.CurrentU05-09')              
+}
+
+if(!file.exists('~/data/LAUS/la.data.0.CurrentU10-14')){
+ download.file('http://download.bls.gov/pub/time.series/la/la.data.0.CurrentU10-14', '~/data/LAUS/la.data.0.CurrentU10-14')              
+}
+```
+
+Next we determine which series to include.  We want MSA level data (area_type_code = B) on employment (measure_code = 5) that are not seasonally adjusted (seasonal = U):
+
+```{r}
+## Read in the LAUS series data
+la.series <- read.delim('~/data/LAUS/la.series') %>%
+  filter(area_type_code == "B", measure_code == 5, seasonal == "U")
+
+## Clean up the MSA names
+la.series$msa.name <- gsub("Employment: ", "", as.character(la.series$series_title))
+la.series$msa.name <- gsub("[:punct:(]U[:punct:)]", "", la.series$msa.name)
+la.series$msa.name <- gsub(" Metropolitan Statistical Area ", "", la.series$msa.name)
+la.series$msa.name <- gsub(" Metropolitan NECTA ", "", la.series$msa.name)
+
+## Select the data we need for the analysis
+la.series <- select(la.series, msa.name, series_id) %>%
+  arrange(msa.name)
+```
+
+We then pull in the LAUS data identified in the previous step into a time series:
+
+```{r}
+data <- read.delim('~/data/LAUS/la.data.0.CurrentU00-04') %>%
+  filter(series_id %in% la.series$series_id, period != "M13")
+data$value <- as.numeric(as.character(data$value))
+
+temp <- read.delim('~/data/LAUS/la.data.0.CurrentU05-09') %>%
+  filter(series_id %in% la.series$series_id, period != "M13")
+temp$value <- as.numeric(as.character(temp$value))
+
+## Append rows
+data <- rbind(data, temp)
+
+temp <- read.delim('~/data/LAUS/la.data.0.CurrentU10-14') %>%
+  filter(series_id %in% la.series$series_id, period != "M13")
+temp$value <- as.numeric(as.character(temp$value))
+
+## Append rows
+data <- rbind(data, temp)
+```
+
+We then identify the month and year the data represent:
+
+```{r}
+str.date <- paste0(substr(data$period, 2,3), "-01-", data$year)
+data$date <- as.Date(str.date, format="%m-%d-%Y")
+```
+
+We then decompose the time series into seasonal, trend and irregular components using Loess keeping the trend:
+
+````{r}
+## Transform from long to wide data frame
+molten <- select(data, series_id, date, value) %>%
+  melt(id=c('series_id','date'), na.rm=TRUE)
+sa.data.wide <- dcast(molten, date ~ series_id, value.var="value") %>%
+  na.omit()
+
+## Create the data frame that will hold the seasonally adjusted data
+sa.data <- as.data.frame(matrix(ncol=3, nrow=0))
+names(sa.data) <- c('series_id','date','value')
+
+## Loop through each series and seasonally adjust
+for(i in 2:ncol(sa.data.wide)){
+  ## Seasonally adjust the data
+  sa <- stl(ts(sa.data.wide[,i], start=c(2000,1), frequency = 12), "per")
+  ## Build the temporary data frame to hold the seasonally adjusted data
+  series_id <-  names(sa.data.wide)[i]
+  temp.df <- data.frame(c(as.character(series_id)), sa.data.wide[,1], as.numeric(sa$time.series[,"trend"]))
+  names(temp.df) <- names(sa.data)
+  ## Append seasonally adjusted data
+  sa.data <- rbind(sa.data, temp.df)
+}
+
+sa.data <- merge(sa.data, la.series)
+```
+
+Finally we create an index using the begining of the time series and the pre-great recession levels:
+
+```{r}
+## 2000 Employment Levels
+y2k <- filter(sa.data, date == "2000-01-01") %>%
+  select(series_id, value)
+names(y2k) <- c('series_id', 'y2k.value')
+sa.data <- merge(sa.data, y2k)
+sa.data$y2k.emp.indx <- (sa.data$value / sa.data$y2k)*100
+
+## Pre Great Recession Employment Levels
+pre.gr <- filter(sa.data, date == "2007-11-01") %>%
+  select(series_id, value)
+names(pre.gr) <- c('series_id', 'pre.gr.value')
+sa.data <- merge(sa.data, pre.gr)
+sa.data$emp.indx <- (sa.data$value / sa.data$pre.gr)*100
+```
+
+Metro employment relative to the January 2000 level  
+
+```{r, echo=FALSE}
+ggplot(sa.data, aes(x=date, y=y2k.emp.indx, group = series_id)) + geom_line(color=alpha("#222222", .1)) + scale_x_date() + theme(axis.title.x = element_blank()) + ylab("Employment Index (Jan 2000 = 100)")
+```
+
+Metro employment relative to the pre-Great Recession level  
+
+```{r, echo=FALSE}
+ggplot(sa.data, aes(x=date, y=emp.indx, group = series_id)) + geom_line(color=alpha("#222222", .1)) + scale_x_date() + theme(axis.title.x = element_blank()) + ylab("Employment Index (Nov 2007 = 100)")
+```
+
+```{r, echo=FALSE}
+rm(temp.df, sa.data.wide, i, series_id, sa, y2k, pre.gr, molten, temp, str.date)
+```
