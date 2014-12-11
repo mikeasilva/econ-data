@@ -54,6 +54,9 @@ la.series$msa.name <- gsub("[:punct:(]U[:punct:)]", "", la.series$msa.name)
 la.series$msa.name <- gsub(" Metropolitan Statistical Area ", "", la.series$msa.name)
 la.series$msa.name <- gsub(" Metropolitan NECTA ", "", la.series$msa.name)
 
+# Exclude Puerto Rico
+la.series <- subset(la.series, !grepl(", PR", la.series$msa.name))
+
 ## Select the data we need for the analysis
 la.series <- select(la.series, msa.name, series_id) %>%
   arrange(msa.name)

@@ -1,5 +1,31 @@
 library(dplyr)
 
+force.download = FALSE
+# Download the files
+
+if(!file.exists('~/data')){
+  dir.create(file.path('~/data'))              
+}
+if(!file.exists('~/data/LAUS')){
+  dir.create(file.path('~/data/LAUS'))              
+}
+
+if(!file.exists('~/data/LAUS/la.series') || force.download){
+  download.file('http://download.bls.gov/pub/time.series/la/la.series', '~/data/LAUS/la.series')              
+}
+
+if(!file.exists('~/data/LAUS/la.data.0.CurrentU00-04') || force.download){
+  download.file('http://download.bls.gov/pub/time.series/la/la.data.0.CurrentU00-04', '~/data/LAUS/la.data.0.CurrentU00-04')              
+}
+
+if(!file.exists('~/data/LAUS/la.data.0.CurrentU05-09') || force.download){
+  download.file('http://download.bls.gov/pub/time.series/la/la.data.0.CurrentU05-09', '~/data/LAUS/la.data.0.CurrentU05-09')              
+}
+
+if(!file.exists('~/data/LAUS/la.data.0.CurrentU10-14') || force.download){
+  download.file('http://download.bls.gov/pub/time.series/la/la.data.0.CurrentU10-14', '~/data/LAUS/la.data.0.CurrentU10-14')              
+}
+
 # Pull the series that match these criteria:
 # MSA (area_type_code = B) 
 # Employment (measure_code = 5)
@@ -13,7 +39,9 @@ la.series$msa.name <- gsub("Employment: ", "", as.character(la.series$series_tit
 la.series$msa.name <- gsub("[:punct:(]U[:punct:)]", "", la.series$msa.name)
 la.series$msa.name <- gsub(" Metropolitan Statistical Area ", "", la.series$msa.name)
 la.series$msa.name <- gsub(" Metropolitan NECTA ", "", la.series$msa.name)
-#la.series[la.series$msa.name == "tica-Rome, NY",]$msa.name <- "Utica-Rome, NY"
+
+# Exclude Puerto Rico
+la.series <- subset(la.series, !grepl(", PR", la.series$msa.name))
 
 la.series <- select(la.series, msa.name, series_id) %>%
   arrange(msa.name)
@@ -41,8 +69,6 @@ data <- merge(data, la.series)
 
 # Remove Temp and la.series Data Frames
 rm(temp)
-
-
 
 str.date <- paste0(substr(data$period, 2,3), "-01-", data$year)
 data$date <- as.Date(str.date,format="%m-%d-%Y")
