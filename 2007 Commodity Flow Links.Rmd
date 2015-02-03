@@ -1,0 +1,97 @@
+
+```{r, message=FALSE, cache=TRUE}
+library(dplyr)
+# http://www2.census.gov/econ2007/CF/sector00/special_tabs/Origin_by_Destination_by_Commodity.zip
+data <-read.csv('Origin_by_Destination_by_Commodity.csv',  header=TRUE, na.strings='S', stringsAsFactors=FALSE)
+
+places <- unique(filter(data, grepl('CFS Area', Place.of.Origin))$Place.of.Origin)
+
+data$Value.in.millions.of.dollars <- as.numeric(data$Value.in.millions.of.dollars)
+
+data$Origin <- paste0(data$Place.of.Origin,', ', data$State.of.Origin)
+data$Destination <- paste0(data$Place.of.Destination,', ', data$State.of.Destination)
+
+data <-  data %>%
+  filter(SCTG.Code == 0) %>%
+  filter(Place.of.Origin %in% places) %>%
+  filter(Place.of.Destination %in% places) %>%
+  filter(!is.na(Value.in.millions.of.dollars)) %>%
+  select(one_of(c('Origin', 'Destination', 'Value.in.millions.of.dollars')))
+
+name.scrubber <- function(name){
+  if(grepl(' part)', name)){
+    name <- substr(name, 1, nchar(name)-14)
+  }
+  gsub(', CFS Area', '', name)
+}
+
+data$Origin <- sapply(data$Origin, function(x){name.scrubber(x)})
+data$Destination <- sapply(data$Destination, function(x){name.scrubber(x)})
+
+standard.names <- read.csv('places lat long.csv')
+
+name.standardizer <- function(name, standard.names){
+  as.character(standard.names[standard.names$Place == name,]$Metro.Area)
+}
+
+data$Origin <- sapply(data$Origin, function(x){name.standardizer(x, standard.names)})
+data$Destination <- sapply(data$Destination, function(x){name.standardizer(x, standard.names)})
+
+#places <- sort(unique(data$Origin))
+
+data <- aggregate(Value.in.millions.of.dollars ~ Origin + Destination, data=data, FUN='sum')
+```
+
+```{r, message=FALSE}
+library(reshape2)
+data <- melt(data, id=c('Origin','Destination'))
+data.wide <- dcast(data, Origin ~ Destination, sum)
+
+#cs <- colSums(data.wide[2:66])
+#m <- data.wide[2:66]/cs
+#v <- rep(1/nrow(data.wide),nrow(data.wide))
+```
+
+## Metro Commodity Flow Maps
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+## Add Origin Lat and Lon
+temp <- standard.names %>%
+  select(Metro.Area, Lat, Lon)
+names(temp) <- c('Origin','Origin.Lat','Origin.Lon')
+data <- merge(data, temp)
+## Add Destination Lat and Lon
+temp <- standard.names %>%
+  select(Metro.Area, Lat, Lon)
+names(temp) <- c('Destination','Destination.Lat','Destination.Lon')
+data <- merge(data, temp)
+
+library(maps)
+library(geosphere)
+#xlim <- c(min(data$Origin.Lon), max(data$Origin.Lon))
+#ylim <- c(min(data$Origin.Lat), max(data$Origin.Lat))
+xlim <- c(-171.738281, -56.601563)
+ylim <- c(12.039321, 71.856229)
+
+pal <- colorRampPalette(c("#f2f2f2", "black"))
+colors <- pal(100)
+ 
+for(f in standard.names$Metro.Area)
+{
+  map("world", col="#f2f2f2", fill=TRUE, bg="white", lwd=0.05, xlim=xlim, ylim=ylim)
+  title(f)
+  map.data <- data[data$Origin == f,]
+
+  map.data <- map.data[order(map.data$value),]
+  
+  max.value <- max(map.data$value)
+  
+  for (j in 1:nrow(map.data)) 
+  {   
+      inter <- gcIntermediate(c(map.data[j,]$Origin.Lon, map.data[j,]$Origin.Lat), c(map.data[j,]$Destination.Lon, map.data[j,]$Destination.Lat), n=100, addStartEnd=TRUE)
+      colindex <- round((data[j,]$value/max.value) * length(colors))
+      lines(inter, col=colors[colindex], lwd=0.8)
+  }
+}
+```
+
