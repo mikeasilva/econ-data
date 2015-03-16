@@ -44,12 +44,16 @@ data <- aggregate(Value.in.millions.of.dollars ~ Origin + Destination, data=data
 
 ```{r, message=FALSE}
 library(reshape2)
+data <- data[data$Origin != data$Destination,]
 data <- melt(data, id=c('Origin','Destination'))
 data.wide <- dcast(data, Origin ~ Destination, sum)
 
 #cs <- colSums(data.wide[2:66])
 #m <- data.wide[2:66]/cs
 #v <- rep(1/nrow(data.wide),nrow(data.wide))
+library('RColorBrewer')
+dw.matrix <- data.matrix(data.wide)
+heatmap(dw.matrix, Rowv=NA, Colv=NA, col=brewer.pal(9, "Blues"), scale="column", margins=c(5,10))
 ```
 
 ## Metro Commodity Flow Maps
@@ -57,7 +61,8 @@ data.wide <- dcast(data, Origin ~ Destination, sum)
 library(dplyr)
 ## Add Origin Lat and Lon
 temp <- standard.names %>%
-  select(Metro.Area, Lat, Lon)
+  select(Metro.Area, Lat, Lon) %>%
+  unique()
 names(temp) <- c('Origin','Origin.Lat','Origin.Lon')
 data <- merge(data, temp)
 ## Add Destination Lat and Lon
@@ -65,6 +70,11 @@ temp <- standard.names %>%
   select(Metro.Area, Lat, Lon)
 names(temp) <- c('Destination','Destination.Lat','Destination.Lon')
 data <- merge(data, temp)
+
+metros <- unique(data[order(data$Origin),]$Origin)
+```
+
+```{r}
 
 library(maps)
 library(geosphere)
@@ -95,3 +105,8 @@ for(f in standard.names$Metro.Area)
 }
 ```
 
+```{r}
+library(igraph)
+net <- data.frame(origin=data$Origin, end=data$Destination)
+plot(graph.edgelist(as.matrix(net)), edge.arrow.size=0, vertex.color="gray90", edge.color="black")
+```
