@@ -1,0 +1,79 @@
+---
+title: "Metro Unemployment Spirals"
+author: "Mike Silva"
+date: "Friday, March 27, 2015"
+output: html_document
+---
+
+```{r}
+ggspiral <- function(x, y, p, title) {
+  # remove period from time coordinate
+  xx <- x %% p
+  dt <- x[2] - x[1]
+  xx2 <- xx + dt
+  # compute number of periods elapsed
+  yy <- x / p
+  yy2 <- yy + 1
+  # prepare data
+  d <- data.frame(xx, xx2, yy, yy2, y)
+  yyMax <- max(yy2)
+  
+  title <- gsub(' (Metropolitan Statistical Area)','',title)
+  
+  ggplot(d) + 
+    # plot tiles of the appropriate colour
+    geom_rect(aes(xmin=xx, xmax=xx2, ymin=yy, ymax=yy2, fill=y)) +
+    
+    # switch to polar coord, starting from -pi/2, going anticlockwise
+    coord_polar(start=-pi/2, direction=-1) +
+    # add extra blank space in the center of the spiral
+    scale_y_continuous(expand=c(0,0), breaks=NULL, limits=c(-yyMax/5, yyMax)) +
+    # force the x coordinate (otherwise, NA appear for some reason)
+    scale_x_continuous(expand=c(0,0), limits=c(0,p)) +
+    
+    ggtitle(title) + 
+
+    theme(axis.line=element_blank(),axis.text.x=element_blank(),
+          axis.text.y=element_blank(),axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),legend.position="none")
+}
+```
+
+
+```{r, message=FALSE}
+library(dplyr)
+library(ggplot2)
+
+metro.names <- read.csv('metrolist.csv') %>%
+  select(msa.fips,  metro.name) %>%
+  unique(.) %>%
+  mutate(metro.name = gsub(' (Metropolitan Statistical Area)','',metro.name))
+
+data <- readRDS('metro.unemployment.rates.rds') %>%
+  filter(period!='M13') %>%
+  mutate(unemployment.rate = round(unemployment.rate * 100,1))
+
+metro.names <- data %>%
+  select(msa.fips) %>%
+  unique(.) %>%
+  merge(metro.names,.)
+
+ur <- data %>%
+  select(unemployment.rate) %>%
+  unique(.) %>%
+  arrange(-unemployment.rate) %>%
+  mutate(ur = cut(unemployment.rate,10))
+
+data <- merge(data,ur)
+
+for(i in 1:nrow(metro.names)){
+  metro <- metro.names[i,]
+  plot.data <- data %>%
+    filter(msa.fips == metro$msa.fips)
+  if(nrow(plot.data)>0){
+    plot.data$row <- 0:(nrow(plot.data)-1)
+    print(ggspiral(plot.data$row, plot.data$ur, 12, metro$metro.name))
+  }
+}
+```
