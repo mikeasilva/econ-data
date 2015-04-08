@@ -18,7 +18,7 @@ ggspiral <- function(x, y, p, title) {
   d <- data.frame(xx, xx2, yy, yy2, y)
   yyMax <- max(yy2)
   
-  title <- gsub(' (Metropolitan Statistical Area)','',title)
+  #title <- gsub('[(Metropolitan Statistical Area)]','',title)
   
   ggplot(d) + 
     # plot tiles of the appropriate colour
@@ -36,7 +36,7 @@ ggspiral <- function(x, y, p, title) {
     theme(axis.line=element_blank(),axis.text.x=element_blank(),
           axis.text.y=element_blank(),axis.ticks=element_blank(),
           axis.title.x=element_blank(),
-          axis.title.y=element_blank(),legend.position="none")
+          axis.title.y=element_blank())
 }
 ```
 
@@ -48,24 +48,26 @@ library(ggplot2)
 metro.names <- read.csv('metrolist.csv') %>%
   select(msa.fips,  metro.name) %>%
   unique(.) %>%
-  mutate(metro.name = gsub(' (Metropolitan Statistical Area)','',metro.name))
+  mutate(metro.name = gsub('(Metropolitan Statistical Area)','',metro.name)) %>%
+  mutate(metro.name = gsub('[()]','',metro.name))
 
 data <- readRDS('metro.unemployment.rates.rds') %>%
   filter(period!='M13') %>%
+  mutate(year = as.numeric(as.character(year))) %>%
+  filter(year < 2014) %>%
   mutate(unemployment.rate = round(unemployment.rate * 100,1))
 
-metro.names <- data %>%
-  select(msa.fips) %>%
-  unique(.) %>%
-  merge(metro.names,.)
+data$sort <- 1:nrow(data)
 
+ur <- seq(min(data$unemployment.rate), max(data$unemployment.rate), 0.1)
 ur <- data %>%
   select(unemployment.rate) %>%
   unique(.) %>%
   arrange(-unemployment.rate) %>%
   mutate(ur = cut(unemployment.rate,10))
 
-data <- merge(data,ur)
+data <- merge(data,ur) %>%
+  arrange(sort)
 
 for(i in 1:nrow(metro.names)){
   metro <- metro.names[i,]
@@ -73,7 +75,7 @@ for(i in 1:nrow(metro.names)){
     filter(msa.fips == metro$msa.fips)
   if(nrow(plot.data)>0){
     plot.data$row <- 0:(nrow(plot.data)-1)
-    print(ggspiral(plot.data$row, plot.data$ur, 12, metro$metro.name))
+    print(ggspiral(plot.data$row, plot.data$unemployment.rate, 12, metro$metro.name))
   }
 }
 ```
