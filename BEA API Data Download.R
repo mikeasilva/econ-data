@@ -21,7 +21,7 @@ source('~/BEA API Functions.R')
 ## The following csv has the list of all the metros and their FIPS codes.  It 
 ## was downloaded from http://www.bea.gov/regional/docs/msalist.cfm by 
 ## selecting the MSA's by state and downloading the CSV.
-metrolist <- read.csv('metrolist.csv', header=FALSE)
+metrolist <- read.csv('metrolist.csv', colClasses=rep('character',4))
 names(metrolist) <- c('state.fips','state.name','msa.fips','msa.name')
 metrolist <- metrolist[c('msa.fips','msa.name')]
 metrolist <- metrolist[!duplicated(metrolist),]
